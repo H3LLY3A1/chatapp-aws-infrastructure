@@ -22,7 +22,6 @@ provider "aws" {
 data "aws_caller_identity" "current" {}
 
 
-# ── VPC ───────────────────────────────────────────────────────────────────────
 
 resource "aws_vpc" "main" {
   cidr_block           = var.vpc_cidr
@@ -201,7 +200,6 @@ resource "aws_route_table_association" "private_b" {
 }
 
 
-# ── Security Groups ───────────────────────────────────────────────────────────
 
 resource "aws_security_group" "alb_sg" {
   name   = "${var.project_name}-alb-sg"
@@ -317,14 +315,12 @@ resource "aws_security_group" "db_sg" {
 }
 
 
-# ── IAM ───────────────────────────────────────────────────────────────────────
 
 data "aws_iam_role" "lab_role" {
   name = "LabRole"
 }
 
 
-# ── S3 ────────────────────────────────────────────────────────────────────────
 
 resource "aws_s3_bucket" "images" {
   bucket        = "${var.project_name}-images-${data.aws_caller_identity.current.account_id}"
@@ -376,7 +372,6 @@ resource "aws_s3_bucket_cors_configuration" "images" {
 }
 
 
-# ── RDS ───────────────────────────────────────────────────────────────────────
 
 resource "aws_db_subnet_group" "main" {
   name       = "${var.project_name}-db-subnet-group"
@@ -419,7 +414,6 @@ resource "aws_db_instance" "main" {
 }
 
 
-# ── ECS Cluster ───────────────────────────────────────────────────────────────
 
 resource "aws_ecs_cluster" "main" {
   name = "${var.project_name}-cluster"
@@ -457,7 +451,6 @@ resource "aws_cloudwatch_log_group" "backend" {
 }
 
 
-# ── ALB ───────────────────────────────────────────────────────────────────────
 
 resource "aws_lb" "main" {
   name               = "${var.project_name}-alb"
@@ -549,7 +542,6 @@ resource "aws_lb_listener_rule" "backend_chat" {
 }
 
 
-# ── ECS Task Definitions & Services ──────────────────────────────────────────
 
 resource "aws_ecs_task_definition" "backend" {
   family                   = "${var.project_name}-backend"
@@ -693,7 +685,6 @@ resource "aws_ecs_service" "frontend" {
 }
 
 
-# ── SNS – CloudWatch alarmy (Lista 6) ────────────────────────────────────────
 
 resource "aws_sns_topic" "alerts" {
   name = "${var.project_name}-alerts"
@@ -711,7 +702,6 @@ resource "aws_sns_topic_subscription" "email" {
 }
 
 
-# ── SNS – powiadomienia o liczbach (Lista 7) ──────────────────────────────────
 
 resource "aws_sns_topic" "number_alerts" {
   name = "${var.project_name}-number-alerts"
@@ -729,7 +719,6 @@ resource "aws_sns_topic_subscription" "number_email" {
 }
 
 
-# ── CloudWatch Alarms (Lista 6) ───────────────────────────────────────────────
 
 resource "aws_cloudwatch_metric_alarm" "backend_cpu_high" {
   alarm_name          = "${var.project_name}-backend-cpu-high"
@@ -807,7 +796,6 @@ resource "aws_cloudwatch_metric_alarm" "alb_unhealthy_hosts" {
 }
 
 
-# ── Auto Scaling (Lista 6) ────────────────────────────────────────────────────
 
 resource "aws_appautoscaling_target" "backend" {
   max_capacity       = var.max_task_count
@@ -860,9 +848,8 @@ resource "aws_appautoscaling_policy" "frontend_cpu" {
 }
 
 
-# ── Lambda – pakowanie (Lista 7) ──────────────────────────────────────────────
 
-resource "null_resource" "lambda_package" {
+resource "null_resource" "lambda_package" { // pakujemy kod lambdy wraz z zależnościami do katalogu package, który potem zostanie spakowany do zipa i użyty do utworzenia funkcji lambda
   triggers = {
     handler = filemd5("${path.module}/lambda/handler.py")
   }
@@ -879,7 +866,7 @@ resource "null_resource" "lambda_package" {
   }
 }
 
-data "archive_file" "lambda_zip" {
+data "archive_file" "lambda_zip" { // tworzymy zipa z kodem lambdy, który będzie później użyty do utworzenia funkcji lambda
   type        = "zip"
   source_dir  = "${path.module}/lambda/package"
   output_path = "${path.module}/lambda/lambda.zip"
@@ -887,9 +874,8 @@ data "archive_file" "lambda_zip" {
 }
 
 
-# ── Lambda Function (Lista 7) ─────────────────────────────────────────────────
 
-resource "aws_lambda_function" "message_processor" {
+resource "aws_lambda_function" "message_processor" { // tworzymy funkcję lambda, która będzie przetwarzać wiadomości i wysyłać alerty, jeśli liczba przekroczy określony próg
   filename         = data.archive_file.lambda_zip.output_path
   source_code_hash = data.archive_file.lambda_zip.output_base64sha256
   function_name    = "${var.project_name}-message-processor"
@@ -920,7 +906,7 @@ resource "aws_lambda_function" "message_processor" {
   }
 }
 
-resource "aws_lambda_permission" "apigw" {
+resource "aws_lambda_permission" "apigw" {  // pozwalamy API Gatewayowi wywoływać naszą funkcję lambda, wskazując na jakie api i metody ma mieć dostęp
   statement_id  = "AllowAPIGatewayInvoke"
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.message_processor.function_name
@@ -929,11 +915,9 @@ resource "aws_lambda_permission" "apigw" {
 }
 
 
-# ── API Gateway (Lista 7) ─────────────────────────────────────────────────────
 
-resource "aws_api_gateway_rest_api" "main" {
+resource "aws_api_gateway_rest_api" "main" { # kontener api 
   name        = "${var.project_name}-api"
-  description = "REST API for message number detection"
 
   tags = {
     Project     = var.project_name
@@ -941,14 +925,14 @@ resource "aws_api_gateway_rest_api" "main" {
   }
 }
 
-resource "aws_api_gateway_resource" "messages" {
-  rest_api_id = aws_api_gateway_rest_api.main.id
+resource "aws_api_gateway_resource" "messages" { # def sciezki /messages w api 
+  rest_api_id = aws_api_gateway_rest_api.main.id # do jakiego api dodajemy zasob
   parent_id   = aws_api_gateway_rest_api.main.root_resource_id
   path_part   = "messages"
 }
 
-resource "aws_api_gateway_method" "post" {
-  rest_api_id   = aws_api_gateway_rest_api.main.id
+resource "aws_api_gateway_method" "post" { # metoda post dla endpointu /messages akceptująca żądania post
+  rest_api_id   = aws_api_gateway_rest_api.main.id 
   resource_id   = aws_api_gateway_resource.messages.id
   http_method   = "POST"
   authorization = "NONE"
@@ -959,21 +943,52 @@ resource "aws_api_gateway_integration" "lambda" {
   resource_id             = aws_api_gateway_resource.messages.id
   http_method             = aws_api_gateway_method.post.http_method
   integration_http_method = "POST"
-  type                    = "AWS_PROXY"
+  type                    = "AWS" 
   uri                     = aws_lambda_function.message_processor.invoke_arn
+
+  request_templates = {
+    "application/json" = "$input.json('$')" # przekazujemy body żądania bezpośrednio jako event do lambdy
+  }
+}
+
+resource "aws_api_gateway_method_response" "post_200" { # definiujemy możliwe kody HTTP jakie metoda może zwrócić
+  rest_api_id = aws_api_gateway_rest_api.main.id
+  resource_id = aws_api_gateway_resource.messages.id
+  http_method = aws_api_gateway_method.post.http_method
+  status_code = "200"
+
+  response_models = {
+    "application/json" = "Empty"
+  }
+}
+
+resource "aws_api_gateway_integration_response" "post_200" { # mapowanie odpowiedzi lambdy na odpowiedź HTTP
+  rest_api_id = aws_api_gateway_rest_api.main.id
+  resource_id = aws_api_gateway_resource.messages.id
+  http_method = aws_api_gateway_method.post.http_method
+  status_code = aws_api_gateway_method_response.post_200.status_code
+
+  response_templates = {
+    "application/json" = "$input.json('$')" # przekazujemy odpowiedź lambdy jako body odpowiedzi HTTP
+  }
+
+  depends_on = [aws_api_gateway_integration.lambda]
 }
 
 resource "aws_api_gateway_deployment" "main" {
   rest_api_id = aws_api_gateway_rest_api.main.id
 
-  depends_on = [aws_api_gateway_integration.lambda]
+  depends_on = [
+    aws_api_gateway_integration.lambda,
+    aws_api_gateway_integration_response.post_200,
+  ]
 
   lifecycle {
-    create_before_destroy = true
+    create_before_destroy = true # przy aktualizacji api, najpierw tworzymy nowy deployment, a dopiero potem usuwamy stary, żeby uniknąć przerw w działaniu api
   }
 }
 
-resource "aws_api_gateway_stage" "prod" {
+resource "aws_api_gateway_stage" "prod" { # tworzymy stage prod, który będzie wskazywał na deployment z aktualną konfiguracją api
   deployment_id = aws_api_gateway_deployment.main.id
   rest_api_id   = aws_api_gateway_rest_api.main.id
   stage_name    = "prod"

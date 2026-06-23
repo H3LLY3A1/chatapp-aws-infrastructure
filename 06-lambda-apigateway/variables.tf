@@ -139,14 +139,14 @@ variable "db_instance_class" {
 
 variable "db_engine_version" {
   type        = string
-  default     = "16.6"
+  default     = "16.9"
   description = "PostgreSQL engine version"
 }
 
 variable "alarm_email" {
   type        = string
   default     = "280655@student.pwr.edu.pl"
-  description = "E-mail address for CloudWatch SNS alarm notifications"
+  description = "das"
 }
 
 variable "cpu_high_threshold" {
@@ -173,10 +173,8 @@ variable "max_task_count" {
   description = "Maximum number of ECS tasks for auto scaling"
 }
 
-# ── Lista 7 ───────────────────────────────────────────────────────────────────
-
 variable "lambda_notification_email" {
   type        = string
   default     = "280655@student.pwr.edu.pl"
-  description = "E-mail for SNS notifications when a number is detected in a message"
+  description = "dsadas"
 }

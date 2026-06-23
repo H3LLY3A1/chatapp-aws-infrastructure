@@ -1,0 +1,9 @@
+$url = terraform output -raw api_gateway_url
+Write-Host $url
+
+
+Invoke-RestMethod -Method POST -Uri $url -ContentType "application/json" -Body '{"message": "hello world"}'
+
+
+
+aws logs tail "/aws/lambda/lista7-app-message-processor" --follow

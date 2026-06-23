@@ -1,8 +1,7 @@
-import json
 import os
 import re
-import boto3
-import pg8000.dbapi
+import boto3 # aws sdk do sns
+import pg8000.dbapi #sterownik do PostgreSQL kompatybilny z AWS RDS Proxy 
 
 
 def _get_conn():
@@ -18,11 +17,10 @@ def _get_conn():
 def _ensure_table(conn):
     cur = conn.cursor()
     cur.execute("""
-        CREATE TABLE IF NOT EXISTS message_flags (
-            id         SERIAL    PRIMARY KEY,
-            message    TEXT      NOT NULL,
-            has_number BOOLEAN   NOT NULL,
-            created_at TIMESTAMP NOT NULL DEFAULT NOW()
+        CREATE TABLE IF NOT EXISTS message (
+            id         SERIAL  PRIMARY KEY,
+            message    TEXT    NOT NULL,
+            has_number BOOLEAN NOT NULL
         )
     """)
     conn.commit()
@@ -30,8 +28,7 @@ def _ensure_table(conn):
 
 
 def lambda_handler(event, context):
-    body = json.loads(event.get("body") or "{}")
-    message = body.get("message", "")
+    message = event.get("message", "")
 
     has_number = bool(re.search(r"\d", message))
 
@@ -40,7 +37,7 @@ def lambda_handler(event, context):
         _ensure_table(conn)
         cur = conn.cursor()
         cur.execute(
-            "INSERT INTO message_flags (message, has_number) VALUES (%s, %s)",
+            "INSERT INTO message (message, has_number) VALUES (%s, %s)",
             (message, has_number),
         )
         conn.commit()
@@ -52,20 +49,8 @@ def lambda_handler(event, context):
         sns = boto3.client("sns", region_name=os.environ["APP_REGION"])
         sns.publish(
             TopicArn=os.environ["SNS_TOPIC_ARN"],
-            Subject="Wykryto liczbę w wiadomości",
-            Message=(
-                f'Wiadomość: "{message}"\n'
-                "Flaga has_number=True została zapisana w bazie danych."
-            ),
+            Subject="Number",
+            Message=f"The message '{message}' contains a number.",
         )
 
-    return {
-        "statusCode": 200,
-        "headers": {
-            "Content-Type": "application/json",
-            "Access-Control-Allow-Origin": "*",
-        },
-        "body": json.dumps(
-            {"message": message, "has_number": has_number}, ensure_ascii=False
-        ),
-    }
+    return {"message": message, "has_number": has_number}
