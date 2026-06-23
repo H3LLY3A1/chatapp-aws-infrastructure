@@ -589,9 +589,6 @@ resource "aws_ecs_task_definition" "frontend" {
   }
 }
 
-# ─────────────────────────────────────────────
-# ECS Services
-# ─────────────────────────────────────────────
 
 resource "aws_ecs_service" "backend" {
   name            = "${var.project_name}-backend"
@@ -648,7 +645,7 @@ resource "aws_ecs_service" "frontend" {
 }
 
 
-resource "aws_sns_topic" "alerts" {
+resource "aws_sns_topic" "alerts" { // Create an SNS topic for alerts
   name = "${var.project_name}-alerts"
 
   tags = {
@@ -657,7 +654,7 @@ resource "aws_sns_topic" "alerts" {
   }
 }
 
-resource "aws_sns_topic_subscription" "email" {
+resource "aws_sns_topic_subscription" "email" { // Subscribe to the SNS topic with an email endpoint
   topic_arn = aws_sns_topic.alerts.arn
   protocol  = "email"
   endpoint  = var.alarm_email
@@ -673,7 +670,7 @@ resource "aws_cloudwatch_metric_alarm" "backend_cpu_high" {
   period              = 60
   statistic           = "Average"
   threshold           = var.cpu_high_threshold
-  alarm_description   = "Backend ECS service CPU utilisation exceeded ${var.cpu_high_threshold}%"
+  alarm_description   = ""
   treat_missing_data  = "notBreaching"
   alarm_actions       = [aws_sns_topic.alerts.arn]
   ok_actions          = [aws_sns_topic.alerts.arn]
@@ -698,7 +695,7 @@ resource "aws_cloudwatch_metric_alarm" "frontend_cpu_high" {
   period              = 60
   statistic           = "Average"
   threshold           = var.cpu_high_threshold
-  alarm_description   = "Frontend ECS service CPU utilisation exceeded ${var.cpu_high_threshold}%"
+  alarm_description   = ""
   treat_missing_data  = "notBreaching"
   alarm_actions       = [aws_sns_topic.alerts.arn]
   ok_actions          = [aws_sns_topic.alerts.arn]
@@ -723,7 +720,7 @@ resource "aws_cloudwatch_metric_alarm" "alb_unhealthy_hosts" {
   period              = 60
   statistic           = "Maximum"
   threshold           = 0
-  alarm_description   = "One or more ALB targets are unhealthy"
+  alarm_description   = ""
   treat_missing_data  = "notBreaching"
   alarm_actions       = [aws_sns_topic.alerts.arn]
   ok_actions          = [aws_sns_topic.alerts.arn]
@@ -760,8 +757,8 @@ resource "aws_appautoscaling_policy" "backend_cpu" {
       predefined_metric_type = "ECSServiceAverageCPUUtilization"
     }
     target_value       = var.cpu_scale_target
-    scale_in_cooldown  = 300
-    scale_out_cooldown = 60
+    scale_in_cooldown  = 300 //po usunieciu
+    scale_out_cooldown = 60 //po dodaniu
   }
 }
 
